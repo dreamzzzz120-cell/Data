@@ -1,6 +1,9 @@
 import Fastify from "fastify";
 import helmet from "@fastify/helmet";
 import rateLimit from "@fastify/rate-limit";
+import fastifyStatic from "@fastify/static";
+import { fileURLToPath } from "node:url";
+import { dirname,join } from "node:path";
 import { z } from "zod";
 import { config } from "./config.js";
 import { pool,tenantTx } from "./db.js";
@@ -9,6 +12,8 @@ import { appendEvent } from "./ledger.js";
 const app=Fastify({logger:{redact:["req.headers.authorization","req.headers.cookie"]},bodyLimit:1_048_576,requestTimeout:15_000});
 await app.register(helmet,{contentSecurityPolicy:true});
 await app.register(rateLimit,{max:120,timeWindow:"1 minute"});
+const here=dirname(fileURLToPath(import.meta.url));
+await app.register(fastifyStatic,{root:join(here,"../public"),prefix:"/"});
 app.get("/health",async()=>({ok:true}));
 app.get("/ready",async(_req,reply)=>{try{await pool.query("SELECT 1");return {ready:true}}catch{return reply.code(503).send({ready:false})}});
 const eventSchema=z.object({streamId:z.string().min(1).max(200),eventType:z.string().min(1).max(120),producerEventId:z.string().min(1).max(200),occurredAt:z.iso.datetime(),payload:z.unknown(),correctionOf:z.uuid().optional()}).strict();
